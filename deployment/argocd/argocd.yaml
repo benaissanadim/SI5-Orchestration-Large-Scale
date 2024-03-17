@@ -1,0 +1,14 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ArgoCD
+metadata:
+  name: argocd
+  namespace: argocd
+  labels:
+    app: argocd
+spec:
+  server:
+    host: argocd.orch-team-g.pns-projects.fr.eu.org
+    ingress:
+      ingressClassName: nginx
+      enabled: true
+    insecure: true

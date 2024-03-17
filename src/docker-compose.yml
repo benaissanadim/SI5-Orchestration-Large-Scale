@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  # web:
+  # TO COMPLETE
+
+  polytemetrie-increment:
+    image: polymetrie-increment
+    ports:
+      - "5000:5000"
+  
+  database:
+    image: postgres:14
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=dev_password
+      - POSTGRES_USER=si5_sacc
+      - POSTGRES_DB=td_1
+
+  redis:
+    image: "redis:latest"
+    ports:
+      - "6379:6379"

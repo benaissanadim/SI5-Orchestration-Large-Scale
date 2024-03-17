@@ -1,0 +1,149 @@
+- name: Playbook
+  hosts: localhost
+
+  vars: 
+    pip_package: python3-pip
+    pip_executable: pip3
+
+  
+  tasks:
+
+    - name : create polymetrie-increment namespace
+      kubernetes.core.k8s:
+        state: present
+        api_version: v1
+        kind: Namespace
+        name: polymetrie-increment
+        
+    - name: Add bitnami Helm repository
+      command: helm repo add bitnami https://charts.bitnami.com/bitnami
+      ignore_errors: yes  # Ignore errors in case the repo is already added
+
+    - name: Deploy latest version of Redis chart inside polymetrie namespace (and create it)
+      kubernetes.core.helm:
+        name: redis
+        chart_ref: bitnami/redis
+        release_namespace: polymetrie-increment
+        create_namespace: true
+        values:
+          auth:
+            password: "a3ZcVinhUY"
+
+    - name: Deploy postgres chart inside polymetrie namespace (and create it)
+      kubernetes.core.helm:
+        name: postgres
+        chart_ref: bitnami/postgresql
+        release_namespace: polymetrie-increment
+        create_namespace: true
+        values:
+          global:
+            storageClass: ""
+            postgresql:
+              auth:
+                postgresPassword: "dev_password"
+                username: "postgres"
+                password: "dev_password"
+                database: "postgres"
+          auth:
+            enablePostgresUser: true
+            postgresPassword: "dev_password"
+            username: "postgres"
+            password: "dev_password"
+            database: "postgres"
+
+
+          primary:
+            name: primary
+            pgHbaConfiguration: |-
+              host all all all trust
+
+    - name: Retrieve PostgreSQL password
+      shell: kubectl get secret -n polymetrie-increment postgres-postgresql -o jsonpath='{.data.postgresql-password}' | base64 --decode
+      register: postgres_password_result
+      changed_when: false
+
+    - name: Store PostgreSQL password in variable
+      set_fact:
+        postgres_password: "{{ postgres_password_result.stdout }}"
+
+    - name: Retrieve Redis password
+      shell: kubectl get secret -n polymetrie-increment redis -o jsonpath='{.data.redis-password}' | base64 --decode
+      register: redis_password_result
+      changed_when: false
+
+    - name: Store Redis password in variable
+      set_fact:
+        redis_password: "{{ redis_password_result.stdout }}"
+
+
+    - name: Deploy polymetrie deployment
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: polymetrie-increment
+            namespace: polymetrie-increment
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: polymetrie-increment
+            template:
+              metadata:
+                labels:
+                  app: polymetrie-increment
+              spec:
+                containers:
+                  - name: polymetrie-increment
+                    image: hamza125/polymetrie-test:latest
+                    ports:
+                      - containerPort: 5000
+                    env:
+                    - name: POSTGRES_PASSWORD
+                      value: "{{ postgres_password }}"
+                    - name: REDIS_PASSWORD
+                      value: "{{ redis_password }}"
+      
+
+    - name: Deploy polymetrie deployment
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: polymetrie-increment-service
+            namespace: polymetrie-increment
+          spec:
+            selector:
+              app: polymetrie-increment
+            ports:
+              - protocol: TCP
+                port: 5000
+                targetPort: 5000
+
+    - name: Deploy polymetrie ingress
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: polymetrie-increment-ingress
+            namespace: polymetrie-increment
+          spec:
+            rules:
+              - host: www.polymetrie-increment.com
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: polymetrie-increment-service
+                          port:
+                            number: 5000
+
+

@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  # web:
+  # TO COMPLETE
+  
+  database:
+    image: postgres:14
+    environment:
+      - POSTGRES_PASSWORD=dev_password
+      - POSTGRES_USER=si5_sacc
+      - POSTGRES_DB=td_1
+    ports:
+      - "5432:5432"
+
+
+  redis:
+    image: "redis:latest"
+    ports:
+      - "6379:6379"
+
+  app:
+    image: "myapp"
+    ports:
+      - "5000:5000"
+    restart: always

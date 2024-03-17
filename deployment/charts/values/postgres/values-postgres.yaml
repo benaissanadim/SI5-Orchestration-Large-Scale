@@ -1,0 +1,20 @@
+global:
+  storageClass: ""
+  postgresql:
+    auth:
+      postgresPassword: "dev_password"
+      username: "postgres"
+      password: "dev_password"
+      database: "postgres"
+auth:
+  enablePostgresUser: true
+  postgresPassword: "dev_password"
+  username: "postgres"
+  password: "dev_password"
+  database: "postgres"
+
+
+primary:
+  name: primary
+  pgHbaConfiguration: |-
+    host all all all trust
